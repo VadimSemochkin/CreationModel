@@ -1,5 +1,6 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
@@ -52,8 +53,62 @@ namespace CreationModel
                 wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE).Set(level2.Id);
             }
 
+            AddDoor(doc,level1,walls[0]);
+            AddWindow(doc, level1, walls[1]);
+            AddWindow(doc, level1, walls[2]);
+            AddWindow(doc, level1, walls[3]);
             transaction.Commit();
         }
+
+        private static void AddWindow(Document doc, Level level1, Wall wall)
+        {
+            FamilySymbol windowType = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .OfCategory(BuiltInCategory.OST_Windows)
+                .Where(x => x.Name.Equals("0406 x 1220 мм"))
+                .OfType<FamilySymbol>()
+                .Where(x => x.FamilyName.Equals("Фиксированные"))
+                .FirstOrDefault();
+
+            LocationCurve hostCurve = wall.Location as LocationCurve;
+            XYZ point1 = hostCurve.Curve.GetEndPoint(0);
+            XYZ point2 = hostCurve.Curve.GetEndPoint(1);
+
+            XYZ point = (point1 + point2) / 2;
+
+            
+
+            if (!windowType.IsActive)
+                windowType.Activate();
+
+            FamilyInstance window=doc.Create.NewFamilyInstance(point, windowType, wall, level1, StructuralType.NonStructural);
+            Parameter offset = window.get_Parameter(BuiltInParameter.INSTANCE_SILL_HEIGHT_PARAM);
+            offset.Set(UnitUtils.ConvertToInternalUnits(900, UnitTypeId.Millimeters));
+        }
+
+        private static void AddDoor(Document doc, Level level1, Wall wall)
+        {
+            FamilySymbol doorType=new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .OfCategory(BuiltInCategory.OST_Doors)
+                .Where(x => x.Name.Equals("0915 x 2134 мм"))
+                .OfType<FamilySymbol>()
+                .Where(x => x.FamilyName.Equals("Одиночные-Щитовые"))
+                .FirstOrDefault();
+
+            LocationCurve hostCurve=wall.Location as LocationCurve;
+            XYZ point1 = hostCurve.Curve.GetEndPoint(0);
+            XYZ point2 = hostCurve.Curve.GetEndPoint(1);
+
+            XYZ point = (point1 + point2) / 2;
+
+            if (!doorType.IsActive)
+                doorType.Activate();
+
+            doc.Create.NewFamilyInstance(point, doorType, wall, level1, StructuralType.NonStructural);
+
+        }
+
         private static void GetLevels(Document doc, out Level level1, out Level level2)
         {
             List<Level> listLevel = new FilteredElementCollector(doc)
